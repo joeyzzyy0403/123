@@ -479,7 +479,7 @@ plot_usmap(data = table01_17, values = "poorcvh3") + scale_fill_gradient2(low = 
 
 
 
-###changes within states
+#####changes within states
 table01_17$change[table01_17[2] <= table01_17[3] & table01_17[3] <= table01_17[4]]<-1 #continuously increasing
 table01_17$change[table01_17[2] >= table01_17[3] & table01_17[3] >= table01_17[4]]<-2 #continuously decreasing
 table01_17$change[table01_17[2] < table01_17[3] & table01_17[3] > table01_17[4]]<-3 #fluctuation
