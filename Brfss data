@@ -1,0 +1,487 @@
+pacman::p_load(RCurl, foreign, downloader, survey, srvyr, ggplot2, dplyr,sqldf,tableone)
+setwd("C:/Users/arieszheng/Desktop/brfss_cvh/csv_data")
+
+
+#2001
+brfss01<-read.csv("brfss01.csv", header = T,stringsAsFactors = F)
+
+brfss01$hp[brfss01$BPHIGH2 %in% c(2)]<-0
+brfss01$hp[brfss01$BPHIGH2 %in% c(1)]<-1
+
+brfss01$diab[brfss01$DIABETES %in% c(3)]<-0
+brfss01$diab[brfss01$DIABETES %in% c(1,2)]<-1
+
+brfss01$chole[brfss01$TOLDHI2 %in% 2]<-0
+brfss01$chole[brfss01$TOLDHI2 %in% 1]<-1
+
+brfss01$smoke[brfss01$SMOKE100 %in% 1 | brfss01$SMOKEDAY %in% c(1,2)]<-1
+brfss01$smoke[brfss01$SMOKE100 %in% 2 ]<-0
+brfss01$smoke[brfss01$SMOKE100 %in% 1 & brfss01$SMOKEDAY %in% c(3)]<-0
+
+brfss01$bmi<-brfss01$WTKG/(brfss01$HTM*brfss01$HTM)
+brfss01$obesity[brfss01$bmi < 30]<-0
+brfss01$obesity[brfss01$bmi >= 30]<-1
+
+brfss01$diet[brfss01$X_FRTINDX %in% 4]<-0
+brfss01$diet[brfss01$X_FRTINDX %in% c(1,2,3)]<-1
+
+brfss01$pa[brfss01$X_RFPAREC %in% c(1)]<-0
+brfss01$pa[brfss01$X_RFPAREC %in% c(2,3)]<-1
+
+brfss01$cvh_total<-rowSums(brfss01[,c("hp","diab","chole","smoke","obesity","diet","pa")],na.rm = T)
+brfss01$cvhmiss<-is.na(brfss01$hp)+is.na(brfss01$diab)+is.na(brfss01$chole)+is.na(brfss01$smoke)+is.na(brfss01$obesity)+is.na(brfss01$pa)+is.na(brfss01$diet)
+
+brfss01$cvh[(brfss01$cvh_total+brfss01$cvhmiss)<=2 & brfss01$cvh_total<=2]<-0
+brfss01$cvh[(brfss01$cvh_total+brfss01$cvhmiss)>=3 & (brfss01$cvh_total+brfss01$cvhmiss)<=7 & brfss01$cvh_total>=3]<-1
+table(brfss01$race,useNA = "ifany")
+
+brfss01$race[brfss01$X_RACEGR2 %in% c(1)]<-1
+brfss01$race[brfss01$X_RACEGR2 %in% c(2)]<-2
+brfss01$race[brfss01$X_RACEGR2 %in% c(5)]<-3
+brfss01$race[brfss01$X_RACEGR2 %in% c(3,4)]<-4
+
+design01<-svydesign(id = ~ X_PSU, strata = ~ X_STATE, nest = TRUE, weight = ~ X_FINALWT, data = brfss01)
+
+disparity01<-svyCreateCatTable(vars = c("cvh"),strata = c("race"),data = design01)
+overall01<-svyCreateCatTable(vars = c("cvh"),data = design01)
+
+#2003
+brfss03<-read.csv("brfss03.csv", header = T,stringsAsFactors = F)
+
+brfss03$hp[brfss03$BPHIGH3 %in% 3]<-0
+brfss03$hp[brfss03$BPHIGH3 %in% c(1,2)]<-1
+
+brfss03$diab[brfss03$DIABETES %in% 3]<-0
+brfss03$diab[brfss03$DIABETES %in% c(1,2)]<-1
+
+brfss03$chole[brfss03$TOLDHI2 %in% 2]<-0
+brfss03$chole[brfss03$TOLDHI2 %in% 1]<-1
+
+brfss03$smoke[brfss03$SMOKE100 %in% 1 & brfss03$SMOKEDAY %in% c(1,2)]<-1
+brfss03$smoke[brfss03$SMOKE100 %in% 2 | brfss03$SMOKEDAY %in% c(3)]<-0
+
+brfss03$WTKG[brfss03$WTKG %in% 99999]<-NA
+brfss03$HTM2[brfss03$HTM2 %in% 999]<-NA
+brfss03$bmi<-brfss03$WTKG/(brfss03$HTM2*brfss03$HTM2/10000)/100
+brfss03$obesity[brfss03$bmi < 30]<-0
+brfss03$obesity[brfss03$bmi >= 30]<-1
+
+brfss03$diet[brfss03$X_FRTINDX %in% 4]<-0
+brfss03$diet[brfss03$X_FRTINDX %in% c(1,2,3)]<-1
+
+brfss03$pa[brfss03$PACAT_ %in% c(1,2,3)]<-0
+brfss03$pa[brfss03$PACAT_ %in% c(4,5)]<-1
+
+brfss03$cvh_total<-rowSums(brfss03[,c("hp","diab","chole","smoke","obesity","diet","pa")],na.rm = T)
+brfss03$cvhmiss<-is.na(brfss03$hp)+is.na(brfss03$diab)+is.na(brfss03$chole)+is.na(brfss03$smoke)+is.na(brfss03$obesity)+is.na(brfss03$pa)+is.na(brfss03$diet)
+
+brfss03$cvh[(brfss03$cvh_total+brfss03$cvhmiss)<=2 & brfss03$cvh_total<=2]<-0
+brfss03$cvh[(brfss03$cvh_total+brfss03$cvhmiss)>=3 & (brfss03$cvh_total+brfss03$cvhmiss)<=7 & brfss03$cvh_total>=3]<-1
+table(brfss03$cvh,useNA = "ifany")
+
+brfss03$race[brfss03$X_RACEGR2 %in% c(1)]<-1
+brfss03$race[brfss03$X_RACEGR2 %in% c(2)]<-2
+brfss03$race[brfss03$X_RACEGR2 %in% c(5)]<-3
+brfss03$race[brfss03$X_RACEGR2 %in% c(3,4)]<-4
+
+design03<-svydesign(id = ~ X_PSU, strata = ~ X_STATE, nest = TRUE, weight = ~ X_FINALWT, data = brfss03)
+
+disparity03<-svyCreateCatTable(vars = c("cvh"),strata = c("race"),data = design03)
+overall03<-svyCreateCatTable(vars = c("cvh"),data = design03)
+
+
+
+#2005
+brfss05<-read.csv("brfss05.csv", header = T,stringsAsFactors = F)
+
+brfss05$hp[brfss05$BPHIGH4 %in% c(3,4)]<-0
+brfss05$hp[brfss05$BPHIGH4 %in% c(1,2)]<-1
+
+brfss05$diab[brfss05$DIABETE2 %in% c(3,4)]<-0
+brfss05$diab[brfss05$DIABETE2 %in% c(1,2)]<-1
+
+brfss05$chole[brfss05$TOLDHI2 %in% 2]<-0
+brfss05$chole[brfss05$TOLDHI2 %in% 1]<-1
+
+brfss05$smoke[brfss05$SMOKE100 %in% 2 | brfss05$SMOKDAY2 %in% 3]<-0
+brfss05$smoke[brfss05$SMOKE100 %in% 1 & brfss05$SMOKDAY2 %in% c(1,2)]<-1
+
+brfss05$WTKG2[brfss05$WTKG2 %in% 99999]<-NA
+brfss05$HTM3[brfss05$HTM3 %in% 999]<-NA
+brfss05$bmi<-brfss05$WTKG2/(brfss05$HTM3*brfss05$HTM3/10000)/100
+brfss05$obesity[brfss05$bmi < 30]<-0
+brfss05$obesity[brfss05$bmi >= 30]<-1
+
+brfss05$diet[brfss05$X_FRTINDX %in% 4]<-0
+brfss05$diet[brfss05$X_FRTINDX %in% c(1,2,3)]<-1
+
+brfss05$pa[brfss05$PACAT_ %in% c(1,2,3)]<-0
+brfss05$pa[brfss05$PACAT_ %in% c(4,5)]<-1
+
+brfss05$cvh_total<-rowSums(brfss05[,c("hp","diab","chole","smoke","obesity","diet","pa")],na.rm = T)
+brfss05$cvhmiss<-is.na(brfss05$hp)+is.na(brfss05$diab)+is.na(brfss05$chole)+is.na(brfss05$smoke)+is.na(brfss05$obesity)+is.na(brfss05$pa)+is.na(brfss05$diet)
+
+brfss05$cvh[(brfss05$cvh_total+brfss05$cvhmiss)<=2 & brfss05$cvh_total<=2]<-0
+brfss05$cvh[(brfss05$cvh_total+brfss05$cvhmiss)>=3 & (brfss05$cvh_total+brfss05$cvhmiss)<=7 & brfss05$cvh_total>=3]<-1
+table(brfss05$cvh,useNA = "ifany")
+
+brfss05$race[brfss05$X_RACEGR2 %in% c(1)]<-1
+brfss05$race[brfss05$X_RACEGR2 %in% c(2)]<-2
+brfss05$race[brfss05$X_RACEGR2 %in% c(5)]<-3
+brfss05$race[brfss05$X_RACEGR2 %in% c(3,4)]<-4
+
+design05<-svydesign(id = ~ X_PSU, strata = ~ X_STATE, nest = TRUE, weight = ~ X_FINALWT, data = brfss05)
+
+disparity05<-svyCreateCatTable(vars = c("cvh"),strata = c("race"),data = design05)
+overall05<-svyCreateCatTable(vars = c("cvh"),data = design05)
+
+
+
+#Combine 2001, 2003, 2005.
+
+brfss135<-rbind(brfss01[,c("X_STATE","X_PSU","X_FINALWT","cvh_total","cvh")],brfss03[,c("X_STATE","X_PSU","X_FINALWT","cvh_total","cvh")],brfss05[,c("X_STATE","X_PSU","X_FINALWT","cvh_total","cvh")])
+
+design135<-svydesign(id = ~ X_PSU, strata = ~ X_STATE, nest = TRUE, weight = ~ X_FINALWT, data = brfss135)
+
+table135<-svyCreateCatTable(vars = c("cvh"),strata = c("X_STATE"),data = design135)
+
+
+
+
+
+#2007
+brfss07<-read.csv("brfss07.csv", header = T,stringsAsFactors = F)
+
+brfss07$hp[brfss07$BPHIGH4 %in% c(3,4)]<-0
+brfss07$hp[brfss07$BPHIGH4 %in% c(1,2)]<-1
+
+brfss07$diab[brfss07$DIABETE2 %in% c(3,4)]<-0
+brfss07$diab[brfss07$DIABETE2 %in% c(1,2)]<-1
+
+brfss07$chole[brfss07$TOLDHI2 %in% 2]<-0
+brfss07$chole[brfss07$TOLDHI2 %in% 1]<-1
+
+brfss07$smoke[brfss07$SMOKE100 %in% 1 & brfss07$SMOKDAY2 %in% c(1,2)]<-1
+brfss07$smoke[brfss07$SMOKE100 %in% 2 | brfss07$SMOKDAY2 %in% 3]<-0
+
+brfss07$WTKG2[brfss07$WTKG2 %in% 99999]<-NA
+brfss07$HTM3[brfss07$HTM3 %in% 999]<-NA
+brfss07$bmi<-brfss07$WTKG2/(brfss07$HTM3*brfss07$HTM3/10000)/100
+brfss07$obesity[brfss07$bmi < 30]<-0
+brfss07$obesity[brfss07$bmi >= 30]<-1
+
+brfss07$diet[brfss07$X_FRTINDX %in% 4]<-0
+brfss07$diet[brfss07$X_FRTINDX %in% c(1,2,3)]<-1
+
+brfss07$pa[brfss07$PACAT_ %in% c(1,2,3)]<-0
+brfss07$pa[brfss07$PACAT_ %in% c(4,5)]<-1
+
+brfss07$cvh_total<-rowSums(brfss07[,c("hp","diab","chole","smoke","obesity","diet","pa")],na.rm = T)
+brfss07$cvhmiss<-is.na(brfss07$hp)+is.na(brfss07$diab)+is.na(brfss07$chole)+is.na(brfss07$smoke)+is.na(brfss07$obesity)+is.na(brfss07$pa)+is.na(brfss07$diet)
+
+brfss07$cvh[(brfss07$cvh_total+brfss07$cvhmiss)<=2 & brfss07$cvh_total<=2]<-0
+brfss07$cvh[(brfss07$cvh_total+brfss07$cvhmiss)>=3 & (brfss07$cvh_total+brfss07$cvhmiss)<=7 & brfss07$cvh_total>=3]<-1
+table(brfss07$cvh,useNA = "ifany")
+
+brfss07$race[brfss07$X_RACEGR2 %in% c(1)]<-1
+brfss07$race[brfss07$X_RACEGR2 %in% c(2)]<-2
+brfss07$race[brfss07$X_RACEGR2 %in% c(5)]<-3
+brfss07$race[brfss07$X_RACEGR2 %in% c(3,4)]<-4
+
+design07<-svydesign(id = ~ X_PSU, strata = ~ X_STATE, nest = TRUE, weight = ~ X_FINALWT, data = brfss07)
+
+disparity07<-svyCreateCatTable(vars = c("cvh"),strata = c("race"),data = design07)
+overall07<-svyCreateCatTable(vars = c("cvh"),data = design07)
+
+
+
+#2009
+brfss09<-read.csv("brfss09.csv", header = T,stringsAsFactors = F)
+
+brfss09$hp[brfss09$BPHIGH4 %in% c(3,4)]<-0
+brfss09$hp[brfss09$BPHIGH4 %in% c(1,2)]<-1
+
+brfss09$diab[brfss09$DIABETE2 %in% c(3,4)]<-0
+brfss09$diab[brfss09$DIABETE2 %in% c(1,2)]<-1
+
+brfss09$chole[brfss09$TOLDHI2 %in% 2]<-0
+brfss09$chole[brfss09$TOLDHI2 %in% 1]<-1
+
+brfss09$smoke[brfss09$SMOKE100 %in% 2 | brfss09$SMOKDAY2 %in% 3]<-0
+brfss09$smoke[brfss09$SMOKE100 %in% 1 & brfss09$SMOKDAY2 %in% c(1,2)]<-1
+
+brfss09$WTKG2[brfss09$WTKG2 %in% 99999]<-NA
+brfss09$HTM3[brfss09$HTM3 %in% 999]<-NA
+brfss09$bmi<-brfss09$WTKG2/(brfss09$HTM3*brfss09$HTM3/10000)/100
+brfss09$obesity[brfss09$bmi < 30]<-0
+brfss09$obesity[brfss09$bmi >= 30]<-1
+
+brfss09$diet[brfss09$X_FRTINDX %in% 4]<-0
+brfss09$diet[brfss09$X_FRTINDX %in% c(1,2,3)]<-1
+
+brfss09$pa[brfss09$PACAT_ %in% c(1,2,3)]<-0
+brfss09$pa[brfss09$PACAT_ %in% c(4,5)]<-1
+
+brfss09$cvh_total<-rowSums(brfss09[,c("hp","diab","chole","smoke","obesity","diet","pa")],na.rm = T)
+brfss09$cvhmiss<-is.na(brfss09$hp)+is.na(brfss09$diab)+is.na(brfss09$chole)+is.na(brfss09$smoke)+is.na(brfss09$obesity)+is.na(brfss09$pa)+is.na(brfss09$diet)
+
+brfss09$cvh[(brfss09$cvh_total+brfss09$cvhmiss)<=2 & brfss09$cvh_total<=2]<-0
+brfss09$cvh[(brfss09$cvh_total+brfss09$cvhmiss)>=3 & (brfss09$cvh_total+brfss09$cvhmiss)<=7 & brfss09$cvh_total>=3]<-1
+table(brfss09$race,useNA = "ifany")
+
+brfss09$race[brfss09$X_RACEGR2 %in% c(1)]<-1
+brfss09$race[brfss09$X_RACEGR2 %in% c(2)]<-2
+brfss09$race[brfss09$X_RACEGR2 %in% c(5)]<-3
+brfss09$race[brfss09$X_RACEGR2 %in% c(3,4)]<-4
+
+design09<-svydesign(id = ~ X_PSU, strata = ~ X_STATE, nest = TRUE, weight = ~ X_FINALWT, data = brfss09)
+
+disparity09<-svyCreateCatTable(vars = c("cvh"),strata = c("race"),data = design09)
+overall09<-svyCreateCatTable(vars = c("cvh"),data = design09)
+
+
+
+#2011
+brfss11<-read.csv("brfss11.csv", header = T,stringsAsFactors = F)
+
+brfss11$hp[brfss11$BPHIGH4 %in% c(3,4)]<-0
+brfss11$hp[brfss11$BPHIGH4 %in% c(1,2)]<-1
+
+brfss11$diab[brfss11$DIABETE3 %in% c(3,4)]<-0
+brfss11$diab[brfss11$DIABETE3 %in% c(1,2)]<-1
+
+brfss11$chole[brfss11$TOLDHI2 %in% 2]<-0
+brfss11$chole[brfss11$TOLDHI2 %in% 1]<-1
+
+brfss11$smoke[brfss11$SMOKE100 %in% 2 | brfss11$SMOKDAY2 %in% 3]<-0
+brfss11$smoke[brfss11$SMOKE100 %in% 1 & brfss11$SMOKDAY2 %in% c(1,2)]<-1
+
+brfss11$bmi<-brfss11$WTKG3/(brfss11$HTM4*brfss11$HTM4/10000)/100
+brfss11$obesity[brfss11$bmi < 30]<-0
+brfss11$obesity[brfss11$bmi >= 30]<-1
+
+brfss11$pa[brfss11$X_PA150R1 %in% 1]<-0
+brfss11$pa[brfss11$X_PA150R1 %in% c(2,3)]<-1
+
+brfss11$diet_sum<-rowSums(brfss11[,c("FTJUDA1_","FRUTDA1_","BEANDAY_","GRENDAY_","ORNGDAY_","VEGEDA1_")], na.rm = T) 
+brfss11$dietmiss<-is.na(brfss11$FTJUDA1_)+is.na(brfss11$FRUTDA1_)+is.na(brfss11$BEANDAY_)+is.na(brfss11$GRENDAY_)+is.na(brfss11$ORNGDAY_)+is.na(brfss11$VEGEDA1_)
+brfss11$diet[brfss11$diet_sum/100 >=5]<-0
+brfss11$diet[brfss11$diet_sum/100 <5 & brfss11$dietmiss == 0]<-1
+
+brfss11$cvh_total<-rowSums(brfss11[,c("hp","diab","chole","smoke","obesity","diet","pa")], na.rm = T) 
+brfss11$cvhmiss<-is.na(brfss11$hp)+is.na(brfss11$diab)+is.na(brfss11$chole)+is.na(brfss11$smoke)+is.na(brfss11$obesity)+is.na(brfss11$pa)+is.na(brfss11$diet)
+
+brfss11$cvh[(brfss11$cvh_total+brfss11$cvhmiss)<=2 & brfss11$cvh_total<=2]<-0
+brfss11$cvh[(brfss11$cvh_total+brfss11$cvhmiss)>=3 & (brfss11$cvh_total+brfss11$cvhmiss)<=7 & brfss11$cvh_total>=3]<-1
+table(brfss11$cvh,useNA = "ifany")
+
+brfss11$race[brfss11$X_RACEGR2 %in% c(1)]<-1
+brfss11$race[brfss11$X_RACEGR2 %in% c(2)]<-2
+brfss11$race[brfss11$X_RACEGR2 %in% c(5)]<-3
+brfss11$race[brfss11$X_RACEGR2 %in% c(3,4)]<-4
+
+design11<-svydesign(id = ~ X_PSU, strata = ~ X_STATE, nest = TRUE, weight = ~ X_LLCPWT, data = brfss11)
+options(survey.lonely.psu="adjust")
+disparity11<-svyCreateCatTable(vars = c("cvh"),strata = c("race"),data = design11)
+overall11<-svyCreateCatTable(vars = c("cvh"),data = design11)
+
+
+#Combine 2007, 2009, 2011.
+brfss11$X_FINALWT<-brfss11$X_LLCPWT
+brfss7911<-rbind(brfss07[,c("X_STATE","X_PSU","X_FINALWT","cvh_total","cvh")],brfss09[,c("X_STATE","X_PSU","X_FINALWT","cvh_total","cvh")],brfss11[,c("X_STATE","X_PSU","X_FINALWT","cvh_total","cvh")])
+
+design7911<-svydesign(id = ~ X_PSU, strata = ~ X_STATE, nest = TRUE, weight = ~ X_FINALWT, data = brfss7911)
+
+table7911<-svyCreateCatTable(vars = c("cvh"),strata = c("X_STATE"),data = design7911)
+
+
+
+
+#2013
+brfss13<-read.csv("brfss13.csv", header = T,stringsAsFactors = F)
+
+brfss13$hp[brfss13$BPHIGH4 %in% c(3,4)]<-0
+brfss13$hp[brfss13$BPHIGH4 %in% c(1,2)]<-1
+
+brfss13$diab[brfss13$DIABETE3 %in% c(3,4)]<-0
+brfss13$diab[brfss13$DIABETE3 %in% c(1,2)]<-1
+
+brfss13$chole[brfss13$TOLDHI2 %in% 2]<-0
+brfss13$chole[brfss13$TOLDHI2 %in% 1]<-1
+
+brfss13$smoke[brfss13$SMOKE100 %in% 2 | brfss13$SMOKDAY2 %in% 3]<-0
+brfss13$smoke[brfss13$SMOKE100 %in% 1 & brfss13$SMOKDAY2 %in% c(1,2)]<-1
+
+brfss13$bmi<-brfss13$WTKG3/(brfss13$HTM4*brfss13$HTM4/10000)/100
+brfss13$obesity[brfss13$bmi < 30]<-0
+brfss13$obesity[brfss13$bmi >= 30]<-1
+
+brfss13$pa[brfss13$X_PA150R2 %in% 1]<-0
+brfss13$pa[brfss13$X_PA150R2 %in% c(2,3)]<-1
+
+brfss13$diet_sum<-rowSums(brfss13[,c("FTJUDA1_","FRUTDA1_","BEANDAY_","GRENDAY_","ORNGDAY_","VEGEDA1_")], na.rm = T) 
+brfss13$dietmiss<-is.na(brfss13$FTJUDA1_)+is.na(brfss13$FRUTDA1_)+is.na(brfss13$BEANDAY_)+is.na(brfss13$GRENDAY_)+is.na(brfss13$ORNGDAY_)+is.na(brfss13$VEGEDA1_)
+brfss13$diet[brfss13$diet_sum/100 >=5]<-0
+brfss13$diet[brfss13$diet_sum/100 <5 & brfss13$dietmiss == 0]<-1
+
+brfss13$cvh_total<-rowSums(brfss13[,c("hp","diab","chole","smoke","obesity","diet","pa")], na.rm = T) 
+brfss13$cvhmiss<-is.na(brfss13$hp)+is.na(brfss13$diab)+is.na(brfss13$chole)+is.na(brfss13$smoke)+is.na(brfss13$obesity)+is.na(brfss13$pa)+is.na(brfss13$diet)
+
+brfss13$cvh[(brfss13$cvh_total+brfss13$cvhmiss)<=2 & brfss13$cvh_total<=2]<-0
+brfss13$cvh[(brfss13$cvh_total+brfss13$cvhmiss)>=3 & (brfss13$cvh_total+brfss13$cvhmiss)<=7 & brfss13$cvh_total>=3]<-1
+table(brfss13$cvh,useNA = "ifany")
+
+brfss13$race[brfss13$X_RACEGR3 %in% c(1)]<-1
+brfss13$race[brfss13$X_RACEGR3 %in% c(2)]<-2
+brfss13$race[brfss13$X_RACEGR3 %in% c(5)]<-3
+brfss13$race[brfss13$X_RACEGR3 %in% c(3,4)]<-4
+
+design13<-svydesign(id = ~ X_PSU, strata = ~ X_STATE, nest = TRUE, weight = ~ X_LLCPWT, data = brfss13)
+disparity13<-svyCreateCatTable(vars = c("cvh"),strata = c("race"),data = design13)
+overall13<-svyCreateCatTable(vars = c("cvh"),data = design13)
+
+
+#2015
+brfss15<-read.csv("brfss15.csv", header = T,stringsAsFactors = F)
+
+brfss15$hp[brfss15$BPHIGH4 %in% c(3,4)]<-0
+brfss15$hp[brfss15$BPHIGH4 %in% c(1,2)]<-1
+
+brfss15$diab[brfss15$DIABETE3 %in% c(3,4)]<-0
+brfss15$diab[brfss15$DIABETE3 %in% c(1,2)]<-1
+
+brfss15$chole[brfss15$TOLDHI2 %in% 2]<-0
+brfss15$chole[brfss15$TOLDHI2 %in% 1]<-1
+
+brfss15$smoke[brfss15$SMOKE100 %in% 2 | brfss15$SMOKDAY2 %in% 3]<-0
+brfss15$smoke[brfss15$SMOKE100 %in% 1 & brfss15$SMOKDAY2 %in% c(1,2)]<-1
+
+brfss15$bmi<-brfss15$WTKG3/(brfss15$HTM4*brfss15$HTM4/10000)/100
+brfss15$obesity[brfss15$bmi < 30]<-0
+brfss15$obesity[brfss15$bmi >= 30]<-1
+
+brfss15$pa[brfss15$X_PA150R2 %in% 1]<-0
+brfss15$pa[brfss15$X_PA150R2 %in% c(2,3)]<-1
+
+brfss15$diet_sum<-rowSums(brfss15[,c("FTJUDA1_","FRUTDA1_","BEANDAY_","GRENDAY_","ORNGDAY_","VEGEDA1_")], na.rm = T) 
+brfss15$dietmiss<-is.na(brfss15$FTJUDA1_)+is.na(brfss15$FRUTDA1_)+is.na(brfss15$BEANDAY_)+is.na(brfss15$GRENDAY_)+is.na(brfss15$ORNGDAY_)+is.na(brfss15$VEGEDA1_)
+brfss15$diet[brfss15$diet_sum/100 >=5]<-0
+brfss15$diet[brfss15$diet_sum/100 <5 & brfss15$dietmiss == 0]<-1
+
+brfss15$cvh_total<-rowSums(brfss15[,c("hp","diab","chole","smoke","obesity","diet","pa")], na.rm = T) 
+brfss15$cvhmiss<-is.na(brfss15$hp)+is.na(brfss15$diab)+is.na(brfss15$chole)+is.na(brfss15$smoke)+is.na(brfss15$obesity)+is.na(brfss15$pa)+is.na(brfss15$diet)
+
+brfss15$cvh[(brfss15$cvh_total+brfss15$cvhmiss)<=2 & brfss15$cvh_total<=2]<-0
+brfss15$cvh[(brfss15$cvh_total+brfss15$cvhmiss)>=3 & (brfss15$cvh_total+brfss15$cvhmiss)<=7 & brfss15$cvh_total>=3]<-1
+table(brfss15$cvh,useNA = "ifany")
+
+brfss15$race[brfss15$X_RACEGR3 %in% c(1)]<-1
+brfss15$race[brfss15$X_RACEGR3 %in% c(2)]<-2
+brfss15$race[brfss15$X_RACEGR3 %in% c(5)]<-3
+brfss15$race[brfss15$X_RACEGR3 %in% c(3,4)]<-4
+
+design15<-svydesign(id = ~ X_PSU, strata = ~ X_STATE, nest = TRUE, weight = ~ X_LLCPWT, data = brfss15)
+disparity15<-svyCreateCatTable(vars = c("cvh"),strata = c("race"),data = design15)
+overall15<-svyCreateCatTable(vars = c("cvh"),data = design15)
+
+
+#2017
+
+brfss17<-read.csv("brfss17.csv", header = T,stringsAsFactors = F)
+
+brfss17$hp[brfss17$BPHIGH4 %in% c(3,4)]<-0
+brfss17$hp[brfss17$BPHIGH4 %in% c(1,2)]<-1
+
+brfss17$diab[brfss17$DIABETE3 %in% c(3,4)]<-0
+brfss17$diab[brfss17$DIABETE3 %in% c(1,2)]<-1
+
+brfss17$chole[brfss17$TOLDHI2 %in% 2]<-0
+brfss17$chole[brfss17$TOLDHI2 %in% 1]<-1
+
+brfss17$smoke[brfss17$SMOKE100 %in% 2 | brfss17$SMOKDAY2 %in% 3]<-0
+brfss17$smoke[brfss17$SMOKE100 %in% 1 & brfss17$SMOKDAY2 %in% c(1,2)]<-1
+
+brfss17$bmi<-brfss17$WTKG3/(brfss17$HTM4*brfss17$HTM4/10000)/100
+brfss17$obesity[brfss17$bmi < 30]<-0
+brfss17$obesity[brfss17$bmi >= 30]<-1
+
+brfss17$pa[brfss17$X_PA150R2 %in% 1]<-0
+brfss17$pa[brfss17$X_PA150R2 %in% c(2,3)]<-1
+
+brfss17$diet_sum<-rowSums(brfss17[,c("FTJUDA2_","FRUTDA2_","GRENDA1_","FRNCHDA_","POTADA1_","VEGEDA2_")], na.rm = T) 
+brfss17$dietmiss<-is.na(brfss17$FTJUDA2_)+is.na(brfss17$FRUTDA2_)+is.na(brfss17$GRENDA1_)+is.na(brfss17$FRNCHDA_)+is.na(brfss17$POTADA1_)+is.na(brfss17$VEGEDA2_)
+brfss17$diet[brfss17$diet_sum/100 >=5]<-0
+brfss17$diet[brfss17$diet_sum/100 <5 & brfss17$dietmiss == 0]<-1
+
+brfss17$cvh_total<-rowSums(brfss17[,c("hp","diab","chole","smoke","obesity","diet","pa")], na.rm = T) 
+brfss17$cvhmiss<-is.na(brfss17$hp)+is.na(brfss17$diab)+is.na(brfss17$chole)+is.na(brfss17$smoke)+is.na(brfss17$obesity)+is.na(brfss17$pa)+is.na(brfss17$diet)
+
+brfss17$cvh[(brfss17$cvh_total+brfss17$cvhmiss)<=2 & brfss17$cvh_total<=2]<-0
+brfss17$cvh[(brfss17$cvh_total+brfss17$cvhmiss)>=3 & (brfss17$cvh_total+brfss17$cvhmiss)<=7 & brfss17$cvh_total>=3]<-1
+table(brfss17$cvh,useNA = "ifany")
+
+brfss17$race[brfss17$X_RACEGR3 %in% c(1)]<-1
+brfss17$race[brfss17$X_RACEGR3 %in% c(2)]<-2
+brfss17$race[brfss17$X_RACEGR3 %in% c(5)]<-3
+brfss17$race[brfss17$X_RACEGR3 %in% c(3,4)]<-4
+
+design17<-svydesign(id = ~ X_PSU, strata = ~ X_STATE, nest = TRUE, weight = ~ X_LLCPWT, data = brfss17)
+disparity17<-svyCreateCatTable(vars = c("cvh"),strata = c("race"),data = design17)
+overall17<-svyCreateCatTable(vars = c("cvh"),data = design17)
+
+
+
+#Combine 2013, 2015, 2017.
+
+brfss131517<-rbind(brfss13[,c("X_STATE","X_PSU","X_LLCPWT","cvh_total","cvh")],brfss15[,c("X_STATE","X_PSU","X_LLCPWT","cvh_total","cvh")],brfss17[,c("X_STATE","X_PSU","X_LLCPWT","cvh_total","cvh")])
+
+design131517<-svydesign(id = ~ X_PSU, strata = ~ X_STATE, nest = TRUE, weight = ~ X_LLCPWT, data = brfss131517)
+
+table131517<-svyCreateCatTable(vars = c("cvh"),strata = c("X_STATE"),data = design131517)
+
+
+
+
+##convert to a table containing all data cycles
+out<-cbind(fips=names(table135)[1],poorcvh1=round(table135[[1]]$cvh$percent[2],1),poorcvh2=round(table7911[[1]]$cvh$percent[2],1),poorcvh3=round(table131517[[1]]$cvh$percent[2],1))
+for (i in 2:52){
+  row<-cbind(fips=names(table135)[i],poorcvh1=round(table135[[i]]$cvh$percent[2],1),poorcvh2=round(table7911[[i]]$cvh$percent[2],1),poorcvh3=round(table131517[[i]]$cvh$percent[2],1))
+  out<-rbind(out,row)
+}
+out
+
+write.csv(out,file = "table01_17.csv",row.names = F)
+
+
+
+
+####mapping state-level poor cvh percentages
+install.packages("usmap")
+library(usmap)
+library(ggplot2)
+usmap::plot_usmap()
+
+##cut off
+table01_17<-read.csv("table01_17.csv", header = T,stringsAsFactors = F)
+pctlist<-as.vector(unlist(table01_17[,c(2,3,4)]))
+quantile(table01_17$poorcvh1,probs = seq(0,1,0.2))
+quantile(table01_17$poorcvh2,probs = seq(0,1,0.2))
+quantile(table01_17$poorcvh3,probs = seq(0,1,0.2))
+quantile(pctlist,probs = seq(0,1,0.2))
+
+
+plot_usmap(data = table01_17, values = "poorcvh1") + scale_fill_gradient2(low = "white", high = "red", name = "Poor CVH Rate (%)", breaks=c(0,20,25,30,35,50), labels = c("0","20","25","30","35","50"),limits=c(0,50)) + labs(title = "Poor CVH rates among pregnant women in US states (2001,2003,2005)")+ theme(legend.position = "right", plot.title = element_text(color="black", size=14, face="bold.italic"))
+
+plot_usmap(data = table01_17, values = "poorcvh2") + scale_fill_gradient2(low = "white", high = "red", name = "Poor CVH Rate (%)", breaks=c(0,20,25,30,35,50),labels = c("0","20","25","30","35","50"),limits=c(0,50)) + labs(title = "Poor CVH rates among pregnant women in US states (2007,2009,2011)")+ theme(legend.position = "right", plot.title = element_text(color="black", size=14, face="bold.italic")) 
+
+plot_usmap(data = table01_17, values = "poorcvh3") + scale_fill_gradient2(low = "white", high = "red", name = "Poor CVH Rate (%)", breaks=c(0,20,25,30,35,50), labels = c("0","20","25","30","35","50"),limits=c(0,50)) + labs(title = "Poor CVH rates among pregnant women in US states (2013,2015,2017)")+ theme(legend.position = "right", plot.title = element_text(color="black", size=14, face="bold.italic")) 
+
+
+
+
+###changes within states
+table01_17$change[table01_17[2] <= table01_17[3] & table01_17[3] <= table01_17[4]]<-1 #continuously increasing
+table01_17$change[table01_17[2] >= table01_17[3] & table01_17[3] >= table01_17[4]]<-2 #continuously decreasing
+table01_17$change[table01_17[2] < table01_17[3] & table01_17[3] > table01_17[4]]<-3 #fluctuation
+table01_17$change[table01_17[2] > table01_17[3] & table01_17[3] < table01_17[4]]<-3 #fluctuation
+table(table01_17$change)
